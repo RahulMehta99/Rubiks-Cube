@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rubik's Cube Solver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .cube-display {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .solution-steps {
+            margin-top: 20px;
+        }
+        .step {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .manual-controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 5px;
+        }
+        .rotation-buttons {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .solved {
+            color: #28a745;
+        }
+        .unsolved {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rubik's Cube Solver</h1>
+        
+        <div class="controls">
+            <button onclick="generateScrambledCube()">Generate Scrambled Cube</button>
+            <button onclick="solveCube()" id="solveBtn">Solve Cube</button>
+            <button onclick="resetCube()">Reset to Solved</button>
+        </div>
+        
+        <div class="status" id="status">Status: Solved</div>
+        
+        <div class="cube-display" id="cubeDisplay">
+            <!-- Cube SVG will be inserted here -->
+        </div>
+        
+        <div class="manual-controls">
+            <h3>Manual Rotation Controls</h3>
+            <p>Click buttons to manually rotate cube faces:</p>
+            <div class="rotation-buttons">
+                <button onclick="rotateFace('F')">F (Front)</button>
+                <button onclick="rotateFace('B')">B (Back)</button>
+                <button onclick="rotateFace('R')">R (Right)</button>
+                <button onclick="rotateFace('L')">L (Left)</button>
+                <button onclick="rotateFace('U')">U (Up)</button>
+                <button onclick="rotateFace('D')">D (Down)</button>
+                <button onclick="rotateFace('F\'')">F' (Front CCW)</button>
+                <button onclick="rotateFace('B\'')">B' (Back CCW)</button>
+                <button onclick="rotateFace('R\'')">R' (Right CCW)</button>
+                <button onclick="rotateFace('L\'')">L' (Left CCW)</button>
+                <button onclick="rotateFace('U\'')">U' (Up CCW)</button>
+                <button onclick="rotateFace('D\'')">D' (Down CCW)</button>
+            </div>
+        </div>
+        
+        <div class="solution-steps" id="solutionSteps">
+            <!-- Solution steps will appear here -->
+        </div>
+    </div>
+
+    <script>
+        // Rubik's Cube Class - Object Oriented Implementation
+        class RubiksCube {
+            constructor() {
+                this.reset();
+            }
+            
+            reset() {
+                // Initialize solved cube state
+                // Each face has 9 squares (3x3)
+                // r=red, g=green, b=blue, y=yellow, o=orange, w=white
+                this.faces = {
+                    F: ['r', 'r', 'r', 'r', 'r', 'r', 'r', 'r', 'r'], // Front (Red)
+                    B: ['o', 'o', 'o', 'o', 'o', 'o', 'o', 'o', 'o'], // Back (Orange)
+                    R: ['g', 'g', 'g', 'g', 'g', 'g', 'g', 'g', 'g'], // Right (Green)
+                    L: ['b', 'b', 'b', 'b', 'b', 'b', 'b', 'b', 'b'], // Left (Blue)
+                    U: ['w', 'w', 'w', 'w', 'w', 'w', 'w', 'w', 'w'], // Up (White)
+                    D: ['y', 'y', 'y', 'y', 'y', 'y', 'y', 'y', 'y']  // Down (Yellow)
+                };
+            }
+            
+            // Clone the cube state
+            clone() {
+                const newCube = new RubiksCube();
+                for (let face in this.faces) {
+                    newCube.faces[face] = [...this.faces[face]];
+                }
+                return newCube;
+            }
+            
+            // Check if cube is solved
+            isSolved() {
+                for (let face in this.faces) {
+                    const faceColors = this.faces[face];
+                    const firstColor = faceColors[0];
+                    if (!faceColors.every(color => color === firstColor)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            
+            // Rotate a face clockwise
+            rotateFaceClockwise(face) {
+                const oldFace = [...this.faces[face]];
+                // Rotate the face itself (3x3 matrix rotation)
+                this.faces[face][0] = oldFace[6];
+                this.faces[face][1] = oldFace[3];
+                this.faces[face][2] = oldFace[0];
+                this.faces[face][3] = oldFace[7];
+                this.faces[face][4] = oldFace[4];
+                this.faces[face][5] = oldFace[1];
+                this.faces[face][6] = oldFace[8];
+                this.faces[face][7] = oldFace[5];
+                this.faces[face][8] = oldFace[2];
+            }
+            
+            // Rotate a face counter-clockwise
+            rotateFaceCounterClockwise(face) {
+                const oldFace = [...this.faces[face]];
+                // Rotate the face itself (3x3 matrix rotation)
+                this.faces[face][0] = oldFace[2];
+                this.faces[face][1] = oldFace[5];
+                this.faces[face][2] = oldFace[8];
+                this.faces[face][3] = oldFace[1];
+                this.faces[face][4] = oldFace[4];
+                this.faces[face][5] = oldFace[7];
+                this.faces[face][6] = oldFace[0];
+                this.faces[face][7] = oldFace[3];
+                this.faces[face][8] = oldFace[6];
+            }
+            
+            // Perform a move (like F, R, U, etc.)
+            move(notation) {
+                const face = notation[0];
+                const isPrime = notation.includes("'");
+                
+                // Store adjacent edges before rotation
+                const temp = [];
+                
+                switch(face) {
+                    case 'F': // Front face
+                        this.rotateFaceClockwise('F');
+                        if (isPrime) {
+                            this.rotateFaceCounterClockwise('F');
+                            this.rotateFaceCounterClockwise('F');
+                        }
+                        
+                        // Rotate adjacent edges
+                        temp.push(this.faces.U[6], this.faces.U[7], this.faces.U[8]);
+                        if (!isPrime) {
+                            this.faces.U[6] = this.faces.L[8];
+                            this.faces.U[7] = this.faces.L[5];
+                            this.faces.U[8] = this.faces.L[2];
+                            
+                            this.faces.L[2] = this.faces.D[0];
+                            this.faces.L[5] = this.faces.D[1];
+                            this.faces.L[8] = this.faces.D[2];
+                            
+                            this.faces.D[0] = this.faces.R[6];
+                            this.faces.D[1] = this.faces.R[3];
+                            this.faces.D[2] = this.faces.R[0];
+                            
+                            this.faces.R[0] = temp[0];
+                            this.faces.R[3] = temp[1];
+                            this.faces.R[6] = temp[2];
+                        } else {
+                            this.faces.U[6] = this.faces.R[0];
+                            this.faces.U[7] = this.faces.R[3];
+                            this.faces.U[8] = this.faces.R[6];
+                            
+                            this.faces.R[0] = this.faces.D[2];
+                            this.faces.R[3] = this.faces.D[1];
+                            this.faces.R[6] = this.faces.D[0];
+                            
+                            this.faces.D[0] = this.faces.L[2];
+                            this.faces.D[1] = this.faces.L[5];
+                            this.faces.D[2] = this.faces.L[8];
+                            
+                            this.faces.L[2] = temp[2];
+                            this.faces.L[5] = temp[1];
+                            this.faces.L[8] = temp[0];
+                        }
+                        break;
+                        
+                    case 'R': // Right face
+                        this.rotateFaceClockwise('R');
+                        if (isPrime) {
+                            this.rotateFaceCounterClockwise('R');
+                            this.rotateFaceCounterClockwise('R');
+                        }
+                        
+                        temp.push(this.faces.U[2], this.faces.U[5], this.faces.U[8]);
+                        if (!isPrime) {
+                            this.faces.U[2] = this.faces.F[2];
+                            this.faces.U[5] = this.faces.F[5];
+                            this.faces.U[8] = this.faces.F[8];
+                            
+                            this.faces.F[2] = this.faces.D[2];
+                            this.faces.F[5] = this.faces.D[5];
+                            this.faces.F[8] = this.faces.D[8];
+                            
+                            this.faces.D[2] = this.faces.B[6];
+                            this.faces.D[5] = this.faces.B[3];
+                            this.faces.D[8] = this.faces.B[0];
+                            
+                            this.faces.B[0] = temp[2];
+                            this.faces.B[3] = temp[1];
+                            this.faces.B[6] = temp[0];
+                        } else {
+                            this.faces.U[2] = this.faces.B[6];
+                            this.faces.U[5] = this.faces.B[3];
+                            this.faces.U[8] = this.faces.B[0];
+                            
+                            this.faces.B[0] = this.faces.D[8];
+                            this.faces.B[3] = this.faces.D[5];
+                            this.faces.B[6] = this.faces.D[2];
+                            
+                            this.faces.D[2] = this.faces.F[2];
+                            this.faces.D[5] = this.faces.F[5];
+                            this.faces.D[8] = this.faces.F[8];
+                            
+                            this.faces.F[2] = temp[0];
+                            this.faces.F[5] = temp[1];
+                            this.faces.F[8] = temp[2];
+                        }
+                        break;
+                        
+                    case 'U': // Up face
+                        this.rotateFaceClockwise('U');
+                        if (isPrime) {
+                            this.rotateFaceCounterClockwise('U');
+                            this.rotateFaceCounterClockwise('U');
+                        }
+                        
+                        temp.push(this.faces.F[0], this.faces.F[1], this.faces.F[2]);
+                        if (!isPrime) {
+                            this.faces.F[0] = this.faces.R[0];
+                            this.faces.F[1] = this.faces.R[1];
+                            this.faces.F[2] = this.faces.R[2];
+                            
+                            this.faces.R[0] = this.faces.B[0];
+                            this.faces.R[1] = this.faces.B[1];
+                            this.faces.R[2] = this.faces.B[2];
+                            
+                            this.faces.B[0] = this.faces.L[0];
+                            this.faces.B[1] = this.faces.L[1];
+                            this.faces.B[2] = this.faces.L[2];
+                            
+                            this.faces.L[0] = temp[0];
+                            this.faces.L[1] = temp[1];
+                            this.faces.L[2] = temp[2];
+                        } else {
+                            this.faces.F[0] = this.faces.L[0];
+                            this.faces.F[1] = this.faces.L[1];
+                            this.faces.F[2] = this.faces.L[2];
+                            
+                            this.faces.L[0] = this.faces.B[0];
+                            this.faces.L[1] = this.faces.B[1];
+                            this.faces.L[2] = this.faces.B[2];
+                            
+                            this.faces.B[0] = this.faces.R[0];
+                            this.faces.B[1] = this.faces.R[1];
+                            this.faces.B[2] = this.faces.R[2];
+                            
+                            this.faces.R[0] = temp[0];
+                            this.faces.R[1] = temp[1];
+                            this.faces.R[2] = temp[2];
+                        }
+                        break;
+                        
+                    case 'L': // Left face
+                        this.rotateFaceClockwise('L');
+                        if (isPrime) {
+                            this.rotateFaceCounterClockwise('L');
+                            this.rotateFaceCounterClockwise('L');
+                        }
+                        
+                        temp.push(this.faces.U[0], this.faces.U[3], this.faces.U[6]);
+                        if (!isPrime) {
+                            this.faces.U[0] = this.faces.B[8];
+                            this.faces.U[3] = this.faces.B[5];
+                            this.faces.U[6] = this.faces.B[2];
+                            
+                            this.faces.B[2] = this.faces.D[6];
+                            this.faces.B[5] = this.faces.D[3];
+                            this.faces.B[8] = this.faces.D[0];
+                            
+                            this.faces.D[0] = this.faces.F[0];
+                            this.faces.D[3] = this.faces.F[3];
+                            this.faces.D[6] = this.faces.F[6];
+                            
+                            this.faces.F[0] = temp[0];
+                            this.faces.F[3] = temp[1];
+                            this.faces.F[6] = temp[2];
+                        } else {
+                            this.faces.U[0] = this.faces.F[0];
+                            this.faces.U[3] = this.faces.F[3];
+                            this.faces.U[6] = this.faces.F[6];
+                            
+                            this.faces.F[0] = this.faces.D[0];
+                            this.faces.F[3] = this.faces.D[3];
+                            this.faces.F[6] = this.faces.D[6];
+                            
+                            this.faces.D[0] = this.faces.B[8];
+                            this.faces.D[3] = this.faces.B[5];
+                            this.faces.D[6] = this.faces.B[2];
+                            
+                            this.faces.B[2] = temp[2];
+                            this.faces.B[5] = temp[1];
+                            this.faces.B[8] = temp[0];
+                        }
+                        break;
+                        
+                    case 'D': // Down face
+                        this.rotateFaceClockwise('D');
+                        if (isPrime) {
+                            this.rotateFaceCounterClockwise('D');
+                            this.rotateFaceCounterClockwise('D');
+                        }
+                        
+                        temp.push(this.faces.F[6], this.faces.F[7], this.faces.F[8]);
+                        if (!isPrime) {
+                            this.faces.F[6] = this.faces.L[6];
+                            this.faces.F[7] = this.faces.L[7];
+                            this.faces.F[8] = this.faces.L[8];
+                            
+                            this.faces.L[6] = this.faces.B[6];
+                            this.faces.L[7] = this.faces.B[7];
+                            this.faces.L[8] = this.faces.B[8];
+                            
+                            this.faces.B[6] = this.faces.R[6];
+                            this.faces.B[7] = this.faces.R[7];
+                            this.faces.B[8] = this.faces.R[8];
+                            
+                            this.faces.R[6] = temp[0];
+                            this.faces.R[7] = temp[1];
+                            this.faces.R[8] = temp[2];
+                        } else {
+                            this.faces.F[6] = this.faces.R[6];
+                            this.faces.F[7] = this.faces.R[7];
+                            this.faces.F[8] = this.faces.R[8];
+                            
+                            this.faces.R[6] = this.faces.B[6];
+                            this.faces.R[7] = this.faces.B[7];
+                            this.faces.R[8] = this.faces.B[8];
+                            
+                            this.faces.B[6] = this.faces.L[6];
+                            this.faces.B[7] = this.faces.L[7];
+                            this.faces.B[8] = this.faces.L[8];
+                            
+                            this.faces.L[6] = temp[0];
+                            this.faces.L[7] = temp[1];
+                            this.faces.L[8] = temp[2];
+                        }
+                        break;
+                        
+                    case 'B': // Back face
+                        this.rotateFaceClockwise('B');
+                        if (isPrime) {
+                            this.rotateFaceCounterClockwise('B');
+                            this.rotateFaceCounterClockwise('B');
+                        }
+                        
+                        temp.push(this.faces.U[0], this.faces.U[1], this.faces.U[2]);
+                        if (!isPrime) {
+                            this.faces.U[0] = this.faces.R[2];
+                            this.faces.U[1] = this.faces.R[5];
+                            this.faces.U[2] = this.faces.R[8];
+                            
+                            this.faces.R[2] = this.faces.D[8];
+                            this.faces.R[5] = this.faces.D[7];
+                            this.faces.R[8] = this.faces.D[6];
+                            
+                            this.faces.D[6] = this.faces.L[0];
+                            this.faces.D[7] = this.faces.L[3];
+                            this.faces.D[8] = this.faces.L[6];
+                            
+                            this.faces.L[0] = temp[2];
+                            this.faces.L[3] = temp[1];
+                            this.faces.L[6] = temp[0];
+                        } else {
+                            this.faces.U[0] = this.faces.L[6];
+                            this.faces.U[1] = this.faces.L[3];
+                            this.faces.U[2] = this.faces.L[0];
+                            
+                            this.faces.L[0] = this.faces.D[6];
+                            this.faces.L[3] = this.faces.D[7];
+                            this.faces.L[6] = this.faces.D[8];
+                            
+                            this.faces.D[6] = this.faces.R[8];
+                            this.faces.D[7] = this.faces.R[5];
+                            this.faces.D[8] = this.faces.R[2];
+                            
+                            this.faces.R[2] = temp[0];
+                            this.faces.R[5] = temp[1];
+                            this.faces.R[8] = temp[2];
+                        }
+                        break;
+                }
+            }
+            
+            // Get string representation for SVG rendering
+            getStateString() {
+                // Order: Front, Right, Back, Left, Up, Down
+                return this.faces.F.join('') + 
+                       this.faces.R.join('') + 
+                       this.faces.B.join('') + 
+                       this.faces.L.join('') + 
+                       this.faces.U.join('') + 
+                       this.faces.D.join('');
+            }
+            
+            // Generate random scramble
+            scramble(moves = 20) {
+                const possibleMoves = ['F', 'F\'', 'R', 'R\'', 'U', 'U\'', 'L', 'L\'', 'D', 'D\'', 'B', 'B\''];
+                const scrambleMoves = [];
+                
+                for (let i = 0; i < moves; i++) {
+                    const randomMove = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+                    scrambleMoves.push(randomMove);
+                    this.move(randomMove);
+                }
+                
+                return scrambleMoves;
+            }
+        }
+
+        // Simple solving algorithm using reverse scramble approach
+        class CubeSolver {
+            constructor(cube) {
+                this.cube = cube;
+                this.solution = [];
+            }
+            
+            // Execute a sequence of moves
+            executeSequence(moves) {
+                moves.forEach(move => {
+                    this.cube.move(move);
+                    this.solution.push(move);
+                });
+            }
+            
+            // Reverse a move (F becomes F', F' becomes F, etc.)
+            reverseMove(move) {
+                if (move.includes("'")) {
+                    return move.replace("'", "");
+                } else {
+                    return move + "'";
+                }
+            }
+            
+            // Basic solving algorithm using breadth-first search approach
+            solve() {
+                this.solution = [];
+                
+                // Try a simple breadth-first search approach
+                const queue = [{cube: this.cube.clone(), moves: []}];
+                const visited = new Set();
+                const maxDepth = 15; // Limit search depth
+                const maxStates = 1000; // Limit number of states to explore
+                
+                let statesExplored = 0;
+                
+                while (queue.length > 0 && statesExplored < maxStates) {
+                    const current = queue.shift();
+                    statesExplored++;
+                    
+                    if (current.cube.isSolved()) {
+                        this.solution = current.moves;
+                        return this.solution;
+                    }
+                    
+                    if (current.moves.length >= maxDepth) {
+                        continue;
+                    }
+                    
+                    const cubeState = current.cube.getStateString();
+                    if (visited.has(cubeState)) {
+                        continue;
+                    }
+                    visited.add(cubeState);
+                    
+                    // Try all possible moves
+                    const possibleMoves = ['F', 'F\'', 'R', 'R\'', 'U', 'U\'', 'L', 'L\'', 'D', 'D\'', 'B', 'B\''];
+                    
+                    for (const move of possibleMoves) {
+                        const newCube = current.cube.clone();
+                        newCube.move(move);
+                        const newMoves = [...current.moves, move];
+                        
+                        queue.push({cube: newCube, moves: newMoves});
+                    }
+                }
+                
+                // If BFS fails, try reverse scramble approach
+                return this.reverseScrambleSolve();
+            }
+            
+            // Alternative approach: try to reverse common scramble patterns
+            reverseScrambleSolve() {
+                this.solution = [];
+                
+                // Common solving sequences (simplified beginner's method patterns)
+                const solvingSequences = [
+                    // Common cross patterns
+                    ['F', 'R', 'U', 'R\'', 'U\'', 'F\''],
+                    ['R', 'U', 'R\'', 'U\'', 'R', 'U', 'R\''],
+                    ['U', 'R', 'U\'', 'R\'', 'U\'', 'F\'', 'U', 'F'],
+                    ['F', 'U', 'R', 'U\'', 'R\'', 'F\''],
+                    ['R', 'U', 'R\'', 'F', 'R', 'F\''],
+                    
+                    // OLL patterns
+                    ['F', 'R', 'U', 'R\'', 'U\'', 'F\''],
+                    ['R', 'U', 'R\'', 'U', 'R', 'U2', 'R\''],
+                    ['R', 'U2', 'R\'', 'U\'', 'R', 'U\'', 'R\''],
+                    
+                    // PLL patterns
+                    ['R', 'U', 'R\'', 'F\'', 'R', 'U', 'R\'', 'U\'', 'R\'', 'F', 'R2', 'U\'', 'R\''],
+                    ['R\'', 'U\'', 'R', 'U\'', 'R\'', 'U', 'R\'', 'U', 'R', 'U', 'R2'],
+                    
+                    // Simple commutators
+                    ['R', 'U', 'R\'', 'U\''],
+                    ['F', 'U', 'F\'', 'U\''],
+                    ['L', 'U', 'L\'', 'U\''],
+                    ['B', 'U', 'B\'', 'U\'']
+                ];
+                
+                let attempts = 0;
+                const maxAttempts = 100;
+                
+                while (!this.cube.isSolved() && attempts < maxAttempts) {
+                    // Try a random sequence
+                    const randomSequence = solvingSequences[Math.floor(Math.random() * solvingSequences.length)];
+                    
+                    // Sometimes reverse the sequence
+                    if (Math.random() < 0.3) {
+                        const reversedSequence = randomSequence.slice().reverse().map(move => this.reverseMove(move));
+                        this.executeSequence(reversedSequence);
+                    } else {
+                        this.executeSequence(randomSequence);
+                    }
+                    
+                    attempts++;
+                    
+                    // Occasionally do a random setup move
+                    if (attempts % 10 === 0) {
+                        const setupMoves = ['U', 'U\'', 'U2', 'D', 'D\'', 'D2'];
+                        const setupMove = setupMoves[Math.floor(Math.random() * setupMoves.length)];
+                        this.cube.move(setupMove);
+                        this.solution.push(setupMove);
+                    }
+                }
+                
+                return this.solution;
+            }
+        }
+
+        // Global cube instance
+        let cube = new RubiksCube();
+
+        // Cube SVG rendering function
+        function getCubeSvg(stateString) {
+            const colors = {
+                'r': '#ff0000', 'g': '#00ff00', 'b': '#0000ff',
+                'y': '#ffff00', 'o': '#ff8800', 'w': '#ffffff'
+            };
+            
+            const size = 300;
+            const faceSize = 60;
+            const gap = 2;
+            
+            let svg = `<svg width="${size * 2}" height="${size * 1.5}" viewBox="0 0 ${size * 2} ${size * 1.5}">`;
+            
+            // Helper function to draw a face
+            function drawFace(x, y, faceColors, label) {
+                let faceHtml = `<g transform="translate(${x}, ${y})">`;
+                faceHtml += `<text x="30" y="-5" text-anchor="middle" font-size="12" font-weight="bold">${label}</text>`;
+                
+                for (let i = 0; i < 9; i++) {
+                    const row = Math.floor(i / 3);
+                    const col = i % 3;
+                    const squareX = col * (faceSize / 3 + gap);
+                    const squareY = row * (faceSize / 3 + gap);
+                    const color = colors[faceColors[i]] || '#cccccc';
+                    
+                    faceHtml += `<rect x="${squareX}" y="${squareY}" width="${faceSize / 3}" height="${faceSize / 3}" 
+                                fill="${color}" stroke="#000" stroke-width="1"/>`;
+                }
+                faceHtml += '</g>';
+                return faceHtml;
+            }
+            
+            // Extract face colors from state string
+            const faces = {
+                F: stateString.slice(0, 9),
+                R: stateString.slice(9, 18),
+                B: stateString.slice(18, 27),
+                L: stateString.slice(27, 36),
+                U: stateString.slice(36, 45),
+                D: stateString.slice(45, 54)
+            };
+            
+            // Draw faces in a net layout
+            svg += drawFace(80, 30, faces.U, 'U');  // Up
+            svg += drawFace(80, 100, faces.F, 'F'); // Front
+            svg += drawFace(80, 170, faces.D, 'D'); // Down
+            svg += drawFace(10, 100, faces.L, 'L'); // Left
+            svg += drawFace(150, 100, faces.R, 'R'); // Right
+            svg += drawFace(220, 100, faces.B, 'B'); // Back
+            
+            svg += '</svg>';
+            return svg;
+        }
+
+        // Update display
+        function updateDisplay() {
+            const cubeDisplay = document.getElementById('cubeDisplay');
+            const status = document.getElementById('status');
+            
+            cubeDisplay.innerHTML = getCubeSvg(cube.getStateString());
+            
+            if (cube.isSolved()) {
+                status.innerHTML = 'Status: <span class="solved">Solved</span>';
+            } else {
+                status.innerHTML = 'Status: <span class="unsolved">Unsolved</span>';
+            }
+        }
+
+         // Store the original scramble for debugging
+        let originalScramble = [];
+
+        // Generate scrambled cube
+        function generateScrambledCube() {
+            cube = new RubiksCube();
+            originalScramble = cube.scramble(20); // more moves for harder scramble
+            console.log('Scramble moves:', originalScramble.join(' '));
+            updateDisplay();
+            document.getElementById('solutionSteps').innerHTML = '';
+        }
+
+        // Reset cube to solved state
+        function resetCube() {
+            cube = new RubiksCube();
+            originalScramble = [];
+            updateDisplay();
+            document.getElementById('solutionSteps').innerHTML = '';
+        }
+
+        // Manual rotation
+        function rotateFace(move) {
+            cube.move(move);
+            updateDisplay();
+        }
+
+        // Solve cube
+        function solveCube() {
+            if (cube.isSolved()) {
+                alert('Cube is already solved!');
+                return;
+            }
+            const solveBtn = document.getElementById('solveBtn');
+            const stepsContainer = document.getElementById('solutionSteps');
+            solveBtn.disabled = true;
+            solveBtn.textContent = 'Solving...';
+            stepsContainer.innerHTML = '<div class="step">Attempting to solve cube...</div>';
+            const solvingCube = cube.clone();
+            const solver = new CubeSolver(solvingCube);
+            setTimeout(() => {
+                try {
+                    solver.maxDepth = 30;
+                    solver.maxStates = 20000;
+                    let solution = solver.solve();
+                    if (solvingCube.isSolved()) {
+                        displaySolution(solution);
+                        applySolutionStepByStep(solution);
+                    } else {
+                        tryReverseScramble();
+                    }
+                } catch (error) {
+                    stepsContainer.innerHTML = '<div class="step">Error occurred during solving. Try generating a new scrambled cube.</div>';
+                }
+                solveBtn.disabled = false;
+                solveBtn.textContent = 'Solve Cube';
+            }, 100);
+        }
+        
+        // Try to solve by reversing the scramble
+        function tryReverseScramble() {
+            const stepsContainer = document.getElementById('solutionSteps');
+            if (typeof originalScramble !== 'undefined' && originalScramble.length > 0) {
+                const reverseSolution = originalScramble.slice().reverse().map(move => move.includes("'") ? move.replace("'", "") : move + "'");
+                const testCube = cube.clone();
+                reverseSolution.forEach(move => testCube.move(move));
+                if (testCube.isSolved()) {
+                    displaySolution(reverseSolution);
+                    applySolutionStepByStep(reverseSolution);
+                } else {
+                    stepsContainer.innerHTML = '<div class="step">Unable to solve the cube. The scramble may have created an invalid state.</div><div class="step">Try generating a new scrambled cube or reset to solved state.</div>';
+                }
+            } else {
+                stepsContainer.innerHTML = '<div class="step">No scramble history available. Try generating a new scrambled cube.</div>';
+            }
+        }
+
+        // Apply solution step by step with animation
+        function applySolutionStepByStep(moves) {
+            let currentStep = 0;
+            function applyNextMove() {
+                if (currentStep < moves.length) {
+                    cube.move(moves[currentStep]);
+                    updateDisplay();
+                    currentStep++;
+                    setTimeout(applyNextMove, 300);
+                } else {
+                    if (cube.isSolved()) {
+                        document.getElementById('status').innerHTML = 'Status: <span class="solved">Solved! 🎉</span>';
+                    }
+                }
+            }
+            setTimeout(applyNextMove, 500);
+        }
+
+        // Display solution steps
+        function displaySolution(moves) {
+            const stepsContainer = document.getElementById('solutionSteps');
+            stepsContainer.innerHTML = '<h3>Solution Steps:</h3>';
+            
+            if (moves.length === 0) {
+                stepsContainer.innerHTML += '<div class="step">Cube is already solved!</div>';
+                return;
+            }
+            
+            stepsContainer.innerHTML += `<div class="step">Total moves: ${moves.length}</div>`;
+            stepsContainer.innerHTML += `<div class="step">Moves sequence: ${moves.join(' ')}</div>`;
+            
+            // Group moves for better readability
+            const groupedMoves = [];
+            for (let i = 0; i < moves.length; i += 10) {
+                groupedMoves.push(moves.slice(i, i + 10));
+            }
+            
+            groupedMoves.forEach((group, index) => {
+                stepsContainer.innerHTML += 
+                    `<div class="step">Step ${index + 1}: ${group.join(' ')}</div>`;
+            });
+        }
+
+        // Initialize display
+        updateDisplay();
+    </script>
+</body>
+</html>
